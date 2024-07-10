@@ -1,0 +1,49 @@
+
+using ZeroTier.Core;
+
+public class ZeroTierInit
+{
+    public ZeroTierInit(string netIdHex, string storage, ushort zeroTierPort)
+    {
+        NetId = Convert.ToUInt64(netIdHex, 16);
+        Storage = storage;
+        ZeroTierPort = zeroTierPort;
+    }
+
+    public ulong NetId { get; }
+    public string Storage { get; }
+    public ushort ZeroTierPort { get; }
+    public string[] IPs { get; protected set; } = [];
+
+    public Node? CreateNode()
+    {
+        try
+        {
+            var n = new Node();
+            n.InitFromStorage(Storage);
+            n.InitSetPort(ZeroTierPort);
+            n.Start();
+
+            System.Console.WriteLine("Waiting for node to come online...");
+            while (!n.Online)
+            {
+                Task.Delay(1000).Wait();
+            }
+            System.Console.WriteLine("Joining network: ", NetId);
+            n.Join(NetId);
+            while (n.IsNetworkTransportReady(NetId))
+            {
+                Task.Delay(1000).Wait();
+            }
+            System.Console.WriteLine("Joined network");
+            IPs = n.GetNetworkAddresses(NetId).Select(v => v.ToString()).ToArray();
+            System.Console.WriteLine("ZT IPs: ", string.Join("; ", IPs));
+            return n;
+        }
+        catch (Exception e)
+        {
+            System.Console.WriteLine(e.Message);
+            return null;
+        }
+    }
+}
